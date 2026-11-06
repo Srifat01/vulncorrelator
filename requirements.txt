@@ -1,0 +1,11 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+sqlalchemy>=2.0.30,<2.2
+psycopg2-binary>=2.9.9,<3
+pydantic>=2.7,<3
+pydantic-settings>=2.3,<3
+alembic>=1.13,<2
+redis>=5,<9
+rq>=1.16,<4
+defusedxml>=0.7.1,<1
+python-multipart>=0.0.9,<1

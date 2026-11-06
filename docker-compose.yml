@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vulnuser
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vulnpass}   # demo default - set your own outside a laptop
+      POSTGRES_DB: vulncorrelator
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vulnuser -d vulncorrelator"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    # Apply migrations, then serve. Only this service migrates, so there is no race.
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://vulnuser:${POSTGRES_PASSWORD:-vulnpass}@postgres:5432/vulncorrelator
+      REDIS_URL: redis://redis:6379/0
+      API_KEY: ${API_KEY:-}   # empty = auth disabled; set it to require X-API-Key
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  worker:
+    build: .
+    command: rq worker ingest --url redis://redis:6379/0
+    healthcheck:
+      disable: true   # the image's HTTP healthcheck only applies to the API
+    environment:
+      DATABASE_URL: postgresql://vulnuser:${POSTGRES_PASSWORD:-vulnpass}@postgres:5432/vulncorrelator
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      api: {condition: service_healthy}   # tables exist once the API is healthy
+      redis: {condition: service_healthy}
+
+volumes:
+  pgdata:

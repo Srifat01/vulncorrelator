@@ -1,0 +1,105 @@
+{
+  "_meta": {
+    "note": "Small demo catalog mapping product versions to well-known CVEs. Scores and vectors follow NVD/CISA-ADP at time of writing; for production, sync from NVD instead of maintaining by hand.",
+    "match": "product name only (CPE vendors differ between scanners and NVD)"
+  },
+  "entries": [
+    {
+      "cve_id": "CVE-2021-41773",
+      "title": "Apache HTTP Server 2.4.49 path traversal and remote code execution",
+      "description": "A flaw in path normalization in Apache HTTP Server 2.4.49 allows path traversal to files outside the document root; with mod_cgi enabled it leads to remote code execution.",
+      "cvss_score": 9.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "tags": ["rce", "path-traversal"],
+      "affects": [{"product": "http_server", "versions": ["2.4.49"]}]
+    },
+    {
+      "cve_id": "CVE-2021-42013",
+      "title": "Apache HTTP Server 2.4.49-2.4.50 path traversal and remote code execution (incomplete fix)",
+      "description": "The fix for CVE-2021-41773 was incomplete; URL-encoded path traversal still works on 2.4.49 and 2.4.50.",
+      "cvss_score": 9.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "tags": ["rce", "path-traversal"],
+      "affects": [{"product": "http_server", "versions": ["2.4.49", "2.4.50"]}]
+    },
+    {
+      "cve_id": "CVE-2019-0211",
+      "title": "Apache HTTP Server 2.4.17-2.4.38 local privilege escalation (scoreboard)",
+      "description": "A child process running as an unprivileged user can execute arbitrary code with the privileges of the parent process (root) via the scoreboard.",
+      "cvss_score": 7.8,
+      "cvss_vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "tags": ["privesc"],
+      "affects": [{"product": "http_server", "ranges": [{"gte": "2.4.17", "lte": "2.4.38"}]}]
+    },
+    {
+      "cve_id": "CVE-2021-44228",
+      "title": "Apache Log4j2 JNDI lookup remote code execution (Log4Shell)",
+      "description": "Log4j2 JNDI features do not protect against attacker-controlled LDAP and other endpoints, allowing remote code execution through logged strings. This is a Java library, not part of Apache HTTP Server.",
+      "cvss_score": 10.0,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
+      "tags": ["rce"],
+      "affects": [{"product": "log4j", "ranges": [{"gte": "2.0", "lt": "2.15.0"}]}]
+    },
+    {
+      "cve_id": "CVE-2014-0160",
+      "title": "OpenSSL TLS heartbeat information disclosure (Heartbleed)",
+      "description": "The TLS heartbeat extension in OpenSSL 1.0.1 through 1.0.1f lets remote attackers read process memory, exposing keys and credentials.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "tags": ["info-disclosure"],
+      "affects": [{"product": "openssl", "ranges": [{"gte": "1.0.1", "lte": "1.0.1f"}]}]
+    },
+    {
+      "cve_id": "CVE-2011-2523",
+      "title": "vsftpd 2.3.4 backdoor command execution",
+      "description": "The vsftpd 2.3.4 download was backdoored; a username ending in a smiley face opens a root shell on TCP port 6200.",
+      "cvss_score": 9.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "tags": ["rce", "backdoor"],
+      "affects": [{"product": "vsftpd", "versions": ["2.3.4"]}]
+    },
+    {
+      "cve_id": "CVE-2017-7494",
+      "title": "Samba remote code execution via writable share (SambaCry)",
+      "description": "Samba 3.5.0 and later load a shared library supplied by a client from a writable share, leading to remote code execution.",
+      "cvss_score": 9.8,
+      "cvss_vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "tags": ["rce"],
+      "affects": [{"product": "samba", "ranges": [
+        {"gte": "3.5.0", "lt": "4.4.14"},
+        {"gte": "4.5.0", "lt": "4.5.10"},
+        {"gte": "4.6.0", "lt": "4.6.4"}
+      ]}]
+    },
+    {
+      "cve_id": "CVE-2021-4034",
+      "title": "polkit pkexec local privilege escalation (PwnKit)",
+      "description": "pkexec mishandles an empty argument list, allowing an unprivileged local user to gain root.",
+      "cvss_score": 7.8,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "tags": ["privesc"],
+      "affects": [{"product": "polkit", "ranges": [{"lt": "0.121"}]}]
+    },
+    {
+      "cve_id": "CVE-2021-3156",
+      "title": "sudo heap overflow local privilege escalation (Baron Samedit)",
+      "description": "A heap-based buffer overflow in sudoedit/sudo -s allows any local user to gain root without authentication.",
+      "cvss_score": 7.8,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "tags": ["privesc"],
+      "affects": [{"product": "sudo", "ranges": [
+        {"gte": "1.8.2", "lte": "1.8.31p2"},
+        {"gte": "1.9.0", "lte": "1.9.5p1"}
+      ]}]
+    },
+    {
+      "cve_id": "CVE-2018-15473",
+      "title": "OpenSSH username enumeration before 7.7",
+      "description": "OpenSSH before 7.7 reveals whether a username exists through differences in authentication failure handling.",
+      "cvss_score": 5.3,
+      "cvss_vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+      "tags": ["info-disclosure"],
+      "affects": [{"product": "openssh", "ranges": [{"lt": "7.7"}]}]
+    }
+  ]
+}

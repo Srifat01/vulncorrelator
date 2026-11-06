@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<nmaprun scanner="nmap" args="nmap -sV -oX - 10.0.1.0/24" version="7.94">
+  <host>
+    <status state="up"/>
+    <address addr="10.0.1.10" addrtype="ipv4"/>
+    <hostnames><hostname name="web01.corp.local" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="22">
+        <state state="open"/>
+        <service name="ssh" product="OpenSSH" version="8.9p1"><cpe>cpe:/a:openbsd:openssh:8.9p1</cpe></service>
+      </port>
+      <port protocol="tcp" portid="80">
+        <state state="open"/>
+        <service name="http" product="Apache httpd" version="2.4.49" extrainfo="(Unix)"><cpe>cpe:/a:apache:http_server:2.4.49</cpe></service>
+        <script id="vulners" output="...">
+          <table key="cpe:/a:apache:http_server:2.4.49">
+            <table>
+              <elem key="is_exploit">true</elem>
+              <elem key="cvss">7.5</elem>
+              <elem key="id">CVE-2021-41773</elem>
+              <elem key="type">cve</elem>
+            </table>
+            <table>
+              <elem key="is_exploit">false</elem>
+              <elem key="cvss">5.0</elem>
+              <elem key="id">PACKETSTORM:164501</elem>
+              <elem key="type">packetstorm</elem>
+            </table>
+          </table>
+        </script>
+      </port>
+      <port protocol="tcp" portid="8080"><state state="closed"/></port>
+    </ports>
+    <os><osmatch name="Linux 5.4" accuracy="98"/></os>
+  </host>
+  <host>
+    <status state="up"/>
+    <address addr="10.0.1.20" addrtype="ipv4"/>
+    <hostnames><hostname name="ftp01.corp.local" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="21">
+        <state state="open"/>
+        <service name="ftp" product="vsftpd" version="2.3.4"><cpe>cpe:/a:vsftpd:vsftpd:2.3.4</cpe></service>
+      </port>
+      <port protocol="tcp" portid="445">
+        <state state="open"/>
+        <service name="microsoft-ds" product="Samba smbd" version="4.5.3"/>
+      </port>
+    </ports>
+    <os><osmatch name="Linux 2.6.X" accuracy="95"/></os>
+  </host>
+  <host><status state="down"/><address addr="10.0.1.99" addrtype="ipv4"/></host>
+</nmaprun>

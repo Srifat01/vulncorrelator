@@ -1,0 +1,15 @@
+{
+  "_meta": {"note": "ILLUSTRATIVE EPSS values for the demo only. Refresh real values with scripts/sync_threat_intel.py."},
+  "scores": {
+    "CVE-2021-41773": 0.94,
+    "CVE-2021-42013": 0.94,
+    "CVE-2021-44228": 0.97,
+    "CVE-2014-0160": 0.94,
+    "CVE-2011-2523": 0.90,
+    "CVE-2017-7494": 0.90,
+    "CVE-2021-4034": 0.85,
+    "CVE-2021-3156": 0.85,
+    "CVE-2019-0211": 0.70,
+    "CVE-2018-15473": 0.10
+  }
+}

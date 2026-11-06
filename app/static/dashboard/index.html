@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>VulnCorrelator — Correlation &amp; Risk Desk</title>
+<meta name="description" content="Operational dashboard for the VulnCorrelator API: assets, vulnerabilities, attack chains and scan ingestion." />
+<link rel="icon" href="data:," />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,600;1,9..144,700;1,9..144,900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-row">
+        <span class="brand-mark" aria-hidden="true">VC</span>
+        <h1 class="brand-title">Vuln<em>Correlator</em></h1>
+      </div>
+      <p class="brand-sub">Correlation &amp; Risk Desk</p>
+    </div>
+
+    <nav class="tabs" role="tablist" aria-label="Dashboard sections">
+      <button class="tab active" data-tab="overview" role="tab" aria-selected="true" aria-controls="panel-overview">
+        <span class="tab-glyph" aria-hidden="true"></span>Overview
+      </button>
+      <button class="tab" data-tab="assets" role="tab" aria-selected="false" aria-controls="panel-assets">
+        <span class="tab-glyph" aria-hidden="true"></span>Assets
+      </button>
+      <button class="tab" data-tab="vulnerabilities" role="tab" aria-selected="false" aria-controls="panel-vulnerabilities">
+        <span class="tab-glyph" aria-hidden="true"></span>Vulnerabilities
+      </button>
+      <button class="tab" data-tab="chains" role="tab" aria-selected="false" aria-controls="panel-chains">
+        <span class="tab-glyph" aria-hidden="true"></span>Attack Chains
+      </button>
+      <button class="tab" data-tab="ingest" role="tab" aria-selected="false" aria-controls="panel-ingest">
+        <span class="tab-glyph" aria-hidden="true"></span>Ingest Scan
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <button class="conn-pill" id="connBtn" type="button">
+        <span class="conn-dot" id="connDot" aria-hidden="true"></span>
+        <span id="connLabel">Checking…</span>
+      </button>
+
+      <details class="settings" id="settingsPanel">
+        <summary>Connection settings</summary>
+        <div class="settings-body">
+          <label class="field">
+            <span>API base URL</span>
+            <input id="apiBase" type="text" placeholder="/" autocomplete="off" spellcheck="false" />
+          </label>
+          <label class="field">
+            <span>X-API-Key <em>(if required)</em></span>
+            <input id="apiKey" type="password" autocomplete="off" spellcheck="false" />
+          </label>
+          <button class="btn-ghost" id="saveSettings" type="button">Save &amp; reconnect</button>
+          <p class="settings-note">Stored in this browser only. Leave the key blank if the API has none configured.</p>
+        </div>
+      </details>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <!-- ===================== OVERVIEW ===================== -->
+    <section id="panel-overview" class="panel active" role="tabpanel" aria-labelledby="t-overview">
+      <header class="panel-head">
+        <h2 id="t-overview">Network Risk Posture</h2>
+        <p class="panel-sub">A standing read of everything ingested so far, re-swept every time this page loads.</p>
+      </header>
+
+      <div class="overview-grid">
+        <div class="sweep" aria-hidden="true"></div>
+        <div class="dial-block">
+          <svg class="dial" viewBox="0 0 220 220" role="img" aria-label="Overall network risk gauge">
+            <circle class="dial-track" cx="110" cy="110" r="92" />
+            <circle class="dial-fill" id="dialFill" cx="110" cy="110" r="92" />
+          </svg>
+          <div class="dial-readout">
+            <span class="dial-number" id="dialNumber">—</span>
+            <span class="dial-label">Avg. network risk<br />of 10</span>
+          </div>
+        </div>
+
+        <div class="kpi-stack">
+          <div class="kpi-row">
+            <span class="kpi-figure" data-count id="statAssets">0</span>
+            <span class="kpi-name">Assets tracked</span>
+          </div>
+          <div class="kpi-row">
+            <span class="kpi-figure" data-count id="statVulns">0</span>
+            <span class="kpi-name">Open findings</span>
+          </div>
+          <div class="kpi-row accent-rust">
+            <span class="kpi-figure" data-count id="statChains">0</span>
+            <span class="kpi-name">Attack chains<span class="kpi-footnote" id="statCriticalChains"></span></span>
+          </div>
+          <div class="kpi-row accent-amber">
+            <span class="kpi-figure" data-count id="statKev">0</span>
+            <span class="kpi-name">Known-exploited (CISA KEV)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="spectrum-block">
+        <h3>Threat spectrum <span class="unit">by severity</span></h3>
+        <div class="spectrum-bar" id="spectrumBar" role="img" aria-label="Findings by severity"></div>
+        <ul class="spectrum-legend" id="spectrumLegend"></ul>
+      </div>
+
+      <p class="mode-banner" id="modeBanner" hidden></p>
+    </section>
+
+    <!-- ===================== ASSETS ===================== -->
+    <section id="panel-assets" class="panel" role="tabpanel" aria-labelledby="t-assets">
+      <header class="panel-head">
+        <h2 id="t-assets">Asset <em>Register</em></h2>
+        <p class="panel-sub">Every host a scan has touched, riskiest first.</p>
+      </header>
+
+      <div class="filter-row" id="assetFilters">
+        <button class="chip active" data-filter="all">All hosts</button>
+        <button class="chip" data-filter="internet">Internet-facing</button>
+        <button class="chip" data-filter="risky">Risk ≥ 7</button>
+        <input class="search" id="assetSearch" type="search" placeholder="Search IP or hostname…" />
+      </div>
+
+      <div class="table-wrap">
+        <table class="dossier-table" id="assetsTable">
+          <thead>
+            <tr>
+              <th data-sort="ip_address">Address</th>
+              <th data-sort="hostname">Hostname</th>
+              <th data-sort="os">OS</th>
+              <th data-sort="internet_facing">Exposure</th>
+              <th data-sort="vulnerability_count">Findings</th>
+              <th data-sort="max_risk_score">Max risk</th>
+            </tr>
+          </thead>
+          <tbody id="assetsBody"></tbody>
+        </table>
+        <p class="empty-state" id="assetsEmpty" hidden></p>
+      </div>
+    </section>
+
+    <!-- ===================== VULNERABILITIES ===================== -->
+    <section id="panel-vulnerabilities" class="panel" role="tabpanel" aria-labelledby="t-vulns">
+      <header class="panel-head">
+        <h2 id="t-vulns">Finding <em>Log</em></h2>
+        <p class="panel-sub">Network-wide findings, ranked by risk score (CVSS, lifted for KEV and exploit probability).</p>
+      </header>
+
+      <div class="filter-row" id="vulnFilters">
+        <button class="chip active" data-filter="all">All severities</button>
+        <button class="chip" data-filter="critical">Critical</button>
+        <button class="chip" data-filter="high">High</button>
+        <button class="chip" data-filter="kev">KEV only</button>
+        <input class="search" id="vulnSearch" type="search" placeholder="Search CVE, product, title…" />
+      </div>
+
+      <div class="table-wrap">
+        <table class="dossier-table" id="vulnsTable">
+          <thead>
+            <tr>
+              <th data-sort="risk_score">Risk</th>
+              <th data-sort="cve_id">CVE</th>
+              <th data-sort="title">Finding</th>
+              <th data-sort="product">Product</th>
+              <th data-sort="port">Port</th>
+              <th data-sort="severity">Severity</th>
+            </tr>
+          </thead>
+          <tbody id="vulnsBody"></tbody>
+        </table>
+        <p class="empty-state" id="vulnsEmpty" hidden></p>
+      </div>
+    </section>
+
+    <!-- ===================== CHAINS ===================== -->
+    <section id="panel-chains" class="panel" role="tabpanel" aria-labelledby="t-chains">
+      <header class="panel-head">
+        <h2 id="t-chains">Attack <em>Chain Board</em></h2>
+        <p class="panel-sub">Multi-step paths the correlation engine strung together from independent findings.</p>
+      </header>
+
+      <div class="board-wrap">
+        <svg id="chainBoard" class="chain-board" viewBox="0 0 900 320" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Attack chain map"></svg>
+      </div>
+
+      <ul class="case-files" id="chainList"></ul>
+      <p class="empty-state" id="chainsEmpty" hidden></p>
+    </section>
+
+    <!-- ===================== INGEST ===================== -->
+    <section id="panel-ingest" class="panel" role="tabpanel" aria-labelledby="t-ingest">
+      <header class="panel-head">
+        <h2 id="t-ingest">Submit a <em>Scan</em></h2>
+        <p class="panel-sub">Drop an Nmap or Nessus export. Findings are parsed, deduplicated against what's already on file, and enriched before they reach the register.</p>
+      </header>
+
+      <form class="ingest-form" id="ingestForm">
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose or drop a scan file">
+          <input type="file" id="fileInput" accept=".xml,.nessus,.json" hidden />
+          <p class="dz-title" id="dzTitle">Drop scan file here</p>
+          <p class="dz-sub">or click to browse — .xml (Nmap), .nessus, or .json</p>
+        </div>
+
+        <div class="ingest-options">
+          <label class="field">
+            <span>Format</span>
+            <select id="formatSelect">
+              <option value="nmap">Nmap XML</option>
+              <option value="nessus">Nessus</option>
+              <option value="json">Generic JSON</option>
+            </select>
+          </label>
+          <label class="field-inline">
+            <input type="checkbox" id="internetFacing" />
+            <span>Mark discovered hosts internet-facing</span>
+          </label>
+          <label class="field-inline">
+            <input type="checkbox" id="asyncMode" />
+            <span>Queue asynchronously (requires Redis worker)</span>
+          </label>
+        </div>
+
+        <button class="btn-primary" id="submitScan" type="submit" disabled>Choose a file first</button>
+
+        <div class="progress-track" id="progressTrack" hidden>
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </form>
+
+      <div class="ticket" id="ingestTicket" hidden></div>
+    </section>
+
+  </main>
+</div>
+
+<script src="js/demo-data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<?xml version="1.0" ?>
+<NessusClientData_v2>
+  <Report name="corp-credentialed">
+    <ReportHost name="10.0.1.10">
+      <HostProperties>
+        <tag name="host-ip">10.0.1.10</tag>
+        <tag name="host-fqdn">web01.corp.local</tag>
+        <tag name="operating-system">Ubuntu 22.04</tag>
+      </HostProperties>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="4" pluginID="153585" pluginName="Apache 2.4.49 Path Traversal / RCE">
+        <cve>CVE-2021-41773</cve>
+        <cvss3_base_score>9.8</cvss3_base_score>
+        <cvss3_vector>CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H</cvss3_vector>
+        <description>The remote Apache server is affected by a path traversal vulnerability.</description>
+        <plugin_output>Installed version : 2.4.49</plugin_output>
+      </ReportItem>
+      <ReportItem port="0" svc_name="general" protocol="tcp" severity="3" pluginID="156104" pluginName="Polkit pkexec Local Privilege Escalation (PwnKit)">
+        <cve>CVE-2021-4034</cve>
+        <cvss3_base_score>7.8</cvss3_base_score>
+        <cpe>cpe:/a:polkit_project:polkit:0.105</cpe>
+        <description>The remote host has a vulnerable version of polkit.</description>
+      </ReportItem>
+      <ReportItem port="443" svc_name="www" protocol="tcp" severity="2" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted">
+        <cvss_base_score>6.4</cvss_base_score>
+        <description>The server's X.509 certificate is not trusted.</description>
+      </ReportItem>
+      <ReportItem port="0" svc_name="general" protocol="tcp" severity="0" pluginID="19506" pluginName="Nessus Scan Information"/>
+    </ReportHost>
+  </Report>
+</NessusClientData_v2>

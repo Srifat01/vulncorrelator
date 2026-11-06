@@ -1,0 +1,4 @@
+{
+  "_meta": {"note": "Demo snapshot of CISA Known Exploited Vulnerabilities IDs. Refresh with scripts/sync_threat_intel.py."},
+  "cve_ids": ["CVE-2021-41773", "CVE-2021-42013", "CVE-2021-44228", "CVE-2014-0160", "CVE-2021-4034", "CVE-2021-3156"]
+}
