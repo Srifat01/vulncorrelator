@@ -240,7 +240,7 @@ Install:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/vulncorrelator.git
+git clone https://github.com/Srifat01/vulncorrelator.git
 
 cd vulncorrelator
 ```
