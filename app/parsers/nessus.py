@@ -2,6 +2,7 @@
 
 from app.parsers.base import ParseError, parse_xml, to_float, valid_ip
 from app.schemas import HostIn, ReportIn, ServiceIn, VulnerabilityIn
+from app.services.netutil import normalize_mac
 
 _SEVERITY = {"0": "info", "1": "low", "2": "medium", "3": "high", "4": "critical"}
 
@@ -22,6 +23,7 @@ def parse_nessus(raw: str | bytes) -> ReportIn:
         ip = valid_ip(props.get("host-ip")) or valid_ip(rh.get("name"))
         if not ip:
             continue
+        macs = [m for m in (normalize_mac(x) for x in props.get("mac-address", "").split()) if m]
         services: dict[tuple[int, str], ServiceIn] = {}
         vulns: list[VulnerabilityIn] = []
         for item in rh.findall("ReportItem"):
@@ -64,6 +66,7 @@ def parse_nessus(raw: str | bytes) -> ReportIn:
         hosts.append(
             HostIn(
                 ip_address=ip,
+                mac_addresses=macs,
                 hostname=props.get("host-fqdn") or props.get("netbios-name"),
                 os=props.get("operating-system"),
                 services=list(services.values()),

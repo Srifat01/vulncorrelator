@@ -76,7 +76,7 @@ class TestRisk:
 
 
 class TestFingerprint:
-    base = dict(ip_address="10.0.0.1", port=80, protocol="tcp", service_name="http", version="2.4.49", title="x")
+    base = dict(asset_key="7", port=80, protocol="tcp", service_name="http", version="2.4.49", title="x")
 
     def test_cve_identity_ignores_service_and_version(self):
         a = fingerprint(cve_id="CVE-2021-41773", **self.base)
@@ -86,7 +86,7 @@ class TestFingerprint:
     def test_cve_identity_depends_on_asset_and_port(self):
         a = fingerprint(cve_id="CVE-2021-41773", **self.base)
         assert a != fingerprint(cve_id="CVE-2021-41773", **{**self.base, "port": 8080})
-        assert a != fingerprint(cve_id="CVE-2021-41773", **{**self.base, "ip_address": "10.0.0.2"})
+        assert a != fingerprint(cve_id="CVE-2021-41773", **{**self.base, "asset_key": "8"})
 
     def test_no_cve_uses_service_version_and_title(self):
         a = fingerprint(cve_id=None, **self.base)

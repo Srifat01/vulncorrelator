@@ -9,21 +9,29 @@ from app.config import get_settings
 from app.models import Base
 from app.services.cache import NullCache, set_cache
 from app.services.queue import set_queue
+from app.services.ratelimit import set_limiter
 
 SAMPLES = Path(__file__).resolve().parent.parent / "samples"
+TEST_KEY = "test-admin-key"
 TEST_DB_URL = os.getenv("TEST_DATABASE_URL", "sqlite://")  # CI also runs against Postgres
 
 
 @pytest.fixture(autouse=True)
 def _isolation(monkeypatch):
-    monkeypatch.delenv("API_KEY", raising=False)
+    monkeypatch.setenv("API_KEY", TEST_KEY)
     monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("READONLY_API_KEY", raising=False)
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")  # specific tests turn it on
+    monkeypatch.setenv("INTEL_LIVE_SYNC", "false")  # tests must never reach the network; intel tests opt in
+    monkeypatch.setenv("INTEL_DEMO_DATA", "true")  # most tests exercise the labelled demo catalog; some turn it off
     get_settings.cache_clear()
+    set_limiter(None)
     engine = database.configure(TEST_DB_URL)
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     set_cache(NullCache())
-    set_queue(None)
+    for name in ("ingest", "analysis", "intel"):
+        set_queue(None, name)
     yield
     Base.metadata.drop_all(engine)
     engine.dispose()
@@ -32,6 +40,14 @@ def _isolation(monkeypatch):
 
 @pytest.fixture
 def client():
+    """Authenticated as admin."""
+    from app.main import app
+
+    return TestClient(app, headers={"X-API-Key": TEST_KEY})
+
+
+@pytest.fixture
+def anon_client():
     from app.main import app
 
     return TestClient(app)

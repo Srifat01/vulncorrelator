@@ -1,16 +1,17 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_api_key
 from app.database import get_db
 from app.models import Asset, Service, Vulnerability
 from app.schemas import AssetOut, AssetPatch, ServiceOut, VulnerabilityOut
+from app.security import audit_action, authorize
 from app.services.cache import get_cache
+from app.services.meta import bump_data_version
 
-router = APIRouter(tags=["assets"], dependencies=[Depends(require_api_key)])
+router = APIRouter(tags=["assets"], dependencies=[Depends(authorize)])
 
 Limit = Annotated[int, Query(ge=1, le=500)]
 Offset = Annotated[int, Query(ge=0)]
@@ -66,15 +67,18 @@ def get_asset(asset_id: int, db: Annotated[Session, Depends(get_db)]):
 
 
 @router.patch("/assets/{asset_id}", response_model=AssetOut)
-def patch_asset(asset_id: int, patch: AssetPatch, db: Annotated[Session, Depends(get_db)]):
-    """Override scanner/heuristic data, e.g. mark a host as internet-facing (changes chains)."""
+def patch_asset(asset_id: int, patch: AssetPatch, request: Request, db: Annotated[Session, Depends(get_db)]):
+    """Operator-supplied context: exposure, criticality, tags, security controls. Changes analysis results."""
     asset = _get_asset(db, asset_id)
-    for field, value in patch.model_dump(exclude_unset=True).items():
-        if field == "internet_facing" and value is None:
-            continue
+    changes = patch.model_dump(exclude_unset=True, exclude_none=True)
+    for field, value in changes.items():
         setattr(asset, field, value)
+        if field == "internet_facing":
+            asset.exposure_source = "declared"  # an operator statement outranks heuristics
+    bump_data_version(db)
     db.commit()
     get_cache().invalidate()
+    audit_action(request, request.state.principal, "asset.patch", f"asset:{asset_id}", detail=changes)
     return get_asset(asset_id, db)
 
 

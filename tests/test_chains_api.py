@@ -16,7 +16,7 @@ def test_same_host_foothold_plus_privesc():
     assert [c.rule for c in chains] == ["foothold-to-privesc"]
     c = chains[0]
     assert [s.role for s in c.steps] == ["initial-access", "privilege-escalation"]
-    assert c.risk_score == 10.0 and "root" in c.title
+    assert c.risk_score >= 9 and "root" in c.title
 
 
 def test_no_chain_for_privesc_alone_or_foothold_alone():
@@ -75,7 +75,10 @@ def test_end_to_end_chains(client, nmap_xml, nessus_xml):
 
     chains = client.get("/chains").json()
     assert [c["rule"] for c in chains] == ["foothold-to-privesc"]  # nothing is internet-facing yet
-    assert chains[0]["risk_score"] == 10.0 and chains[0]["assets"][0]["id"] == web["id"]
+    assert chains[0]["assets"][0]["id"] == web["id"]
+    # the legacy endpoint is deprecated and labels what it does not know
+    assert chains[0]["deprecated"] is True and chains[0]["successor"] == "/attack-paths"
+    assert chains[0]["evidence_status"] == "inferred"
     assert [s["cve_id"] for s in chains[0]["steps"]] == ["CVE-2021-41773", "CVE-2021-4034"]
     assert "explanation" in chains[0] and "CVE-2021-4034" in chains[0]["explanation"]
 

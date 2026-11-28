@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 
+from app.models import EVIDENCE_RANK
 from app.schemas import HostIn, ServiceIn
 from app.services.cpe import (
     guess_vendor_product,
@@ -10,12 +11,14 @@ from app.services.cpe import (
 )
 from app.services.fingerprint import fingerprint
 from app.services.intel import CVE_RE, ThreatIntel, infer_tags
-from app.services.risk import normalize_cvss, risk_score
+from app.services.risk import normalize_cvss
+
+DERIVED_SOURCES = {"catalog", "nvd-cpe"}
 
 
 @dataclass
 class NormalizedFinding:
-    fingerprint: str
+    fp_parts: dict  # inputs of fingerprint() other than the asset key
     ip_address: str
     cve_id: str | None
     title: str
@@ -32,9 +35,13 @@ class NormalizedFinding:
     tags: list[str]
     epss: float | None
     in_kev: bool
-    risk_score: float
     sources: list[str]
     evidence: dict = field(default_factory=dict)
+    evidence_status: str = "observed"  # confirmed | observed | inferred
+    cvss_source: str | None = None
+
+    def fingerprint_for(self, asset_key: str) -> str:
+        return fingerprint(asset_key=asset_key, **self.fp_parts)
 
 
 @dataclass
@@ -104,9 +111,10 @@ def build_findings(host: HostIn, source: str, intel: ThreatIntel) -> tuple[list[
     findings: dict[str, NormalizedFinding] = {}
 
     def add(f: NormalizedFinding) -> None:
-        existing = findings.get(f.fingerprint)
+        key = f.fingerprint_for(host.ip_address)  # any stable per-host key works for in-report dedup
+        existing = findings.get(key)
         if existing is None:
-            findings[f.fingerprint] = f
+            findings[key] = f
             return
         # Same finding seen by several sources in one report (e.g. the scanner and the catalog):
         # merge, keeping the higher score and every source's evidence.
@@ -115,7 +123,8 @@ def build_findings(host: HostIn, source: str, intel: ThreatIntel) -> tuple[list[
         existing.sources = sorted(set(existing.sources) | set(f.sources))
         for key, value in f.evidence.items():
             existing.evidence.setdefault(key, value)
-        existing.risk_score = max(existing.risk_score, f.risk_score)
+        if EVIDENCE_RANK[f.evidence_status] > EVIDENCE_RANK[existing.evidence_status]:
+            existing.evidence_status = f.evidence_status
 
     def make(
         *,
@@ -131,12 +140,18 @@ def build_findings(host: HostIn, source: str, intel: ThreatIntel) -> tuple[list[
         service_name: str | None,
         src: str,
         evidence: dict,
+        verified: bool = False,
     ) -> NormalizedFinding:
         cve = _clean_cve(entry_cve, title)
         entry = intel.lookup(cve)
         if entry and title.strip().upper().startswith(entry.cve_id):
             title = entry.title  # scanner only gave a generic "CVE-... on <service>" title
+        # CVSS attribution: only a score the scanner itself reported is "scanner"; derived findings carry the origin
+        # of the intelligence they came from (nvd | demo).
+        cvss_source = "scanner" if cvss is not None and src not in DERIVED_SOURCES else None
         if entry:  # fill gaps from the catalog, never override the scanner
+            if entry.cvss_score is not None and (cvss is None or src in DERIVED_SOURCES):
+                cvss_source = entry.origin
             cvss = cvss if cvss is not None else entry.cvss_score
             vector = vector or entry.cvss_vector
             description = description or entry.description
@@ -145,8 +160,7 @@ def build_findings(host: HostIn, source: str, intel: ThreatIntel) -> tuple[list[
         in_kev = intel.is_kev(cve)
         epss = intel.epss_score(cve)
         return NormalizedFinding(
-            fingerprint=fingerprint(
-                ip_address=host.ip_address,
+            fp_parts=dict(
                 port=port,
                 protocol=protocol,
                 cve_id=cve,
@@ -170,9 +184,11 @@ def build_findings(host: HostIn, source: str, intel: ThreatIntel) -> tuple[list[
             tags=tags,
             epss=epss,
             in_kev=in_kev,
-            risk_score=risk_score(score, epss, in_kev),
             sources=[src],
             evidence={src: evidence},
+            # a finding is "inferred" when it only exists because we matched a version string
+            evidence_status="inferred" if src in DERIVED_SOURCES else ("confirmed" if verified else "observed"),
+            cvss_source=cvss_source,
         )
 
     # 3. Findings reported by the scanner.
@@ -204,6 +220,7 @@ def build_findings(host: HostIn, source: str, intel: ThreatIntel) -> tuple[list[
                 service_name=normalize_service_name(v.service_name) or (svc.name if svc else None),
                 src=source,
                 evidence=v.evidence,
+                verified=v.verified,
             )
         )
 
@@ -225,6 +242,27 @@ def build_findings(host: HostIn, source: str, intel: ThreatIntel) -> tuple[list[
                     service_name=svc.name,
                     src="catalog",
                     evidence={"matched_product": res.product_key, "matched_version": res.version},
+                )
+            )
+
+    # 5. CVEs NVD associates with the exact CPE (looked up asynchronously by the intel worker; cached, no network here).
+    for key, svc in services.items():
+        res = resolved_svc[key]
+        for entry in intel.match_cpe(res.cpe):
+            add(
+                make(
+                    entry_cve=entry.cve_id,
+                    title=entry.title,
+                    description=entry.description,
+                    cvss=entry.cvss_score,
+                    vector=entry.cvss_vector,
+                    severity=None,
+                    port=svc.port,
+                    protocol=svc.protocol,
+                    res=res,
+                    service_name=svc.name,
+                    src="nvd-cpe",
+                    evidence={"matched_cpe": res.cpe, "origin": entry.origin},
                 )
             )
 

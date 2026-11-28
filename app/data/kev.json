@@ -1,4 +1,13 @@
 {
-  "_meta": {"note": "Demo snapshot of CISA Known Exploited Vulnerabilities IDs. Refresh with scripts/sync_threat_intel.py."},
-  "cve_ids": ["CVE-2021-41773", "CVE-2021-42013", "CVE-2021-44228", "CVE-2014-0160", "CVE-2021-4034", "CVE-2021-3156"]
+ "_meta": {
+  "note": "DEMONSTRATION data: a hand-picked subset of CISA KEV ids so the demo can show KEV handling offline. It is NOT the live catalog and must not be used to conclude that a CVE is absent from KEV. Run the live sync for real data."
+ },
+ "cve_ids": [
+  "CVE-2021-41773",
+  "CVE-2021-42013",
+  "CVE-2021-44228",
+  "CVE-2014-0160",
+  "CVE-2021-4034",
+  "CVE-2021-3156"
+ ]
 }

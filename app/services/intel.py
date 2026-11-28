@@ -3,10 +3,8 @@
 import json
 import re
 from dataclasses import dataclass, field
-from functools import lru_cache
 from pathlib import Path
 
-from app.config import get_settings
 from app.services.versions import version_matches
 
 CVE_RE = re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.IGNORECASE)
@@ -38,6 +36,7 @@ class CatalogEntry:
     cvss_vector: str | None
     tags: tuple[str, ...]
     affects: tuple[dict, ...] = field(default_factory=tuple)
+    origin: str = "demo"  # demo (bundled, illustrative) | nvd (live)
 
     def matches(self, product: str, version: str) -> bool:
         for rule in self.affects:
@@ -100,8 +99,3 @@ class ThreatIntel:
 
     def epss_score(self, cve_id: str | None) -> float | None:
         return self.epss.get(cve_id.upper()) if cve_id else None
-
-
-@lru_cache
-def get_intel() -> ThreatIntel:
-    return ThreatIntel.from_dir(get_settings().intel_dir)

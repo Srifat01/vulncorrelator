@@ -5,3 +5,5 @@ __pycache__/
 .venv/
 *.db
 .env
+evaluation/results/ci.json
+dump.rdb

@@ -1,9 +1,19 @@
+# Secrets are REQUIRED and have no defaults:  export API_KEY=$(openssl rand -hex 24) POSTGRES_PASSWORD=$(openssl rand -hex 16)
+x-app-env: &app-env
+  DATABASE_URL: postgresql://vulnuser:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/vulncorrelator
+  REDIS_URL: redis://redis:6379/0
+  API_KEY: ${API_KEY:?set API_KEY}
+  READONLY_API_KEY: ${READONLY_API_KEY:-}
+  INTEL_DEMO_DATA: ${INTEL_DEMO_DATA:-false}   # true = load the bundled, clearly-labelled DEMONSTRATION catalog
+  INTEL_LIVE_SYNC: ${INTEL_LIVE_SYNC:-true}    # false for air-gapped deployments
+  NVD_API_KEY: ${NVD_API_KEY:-}
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: vulnuser
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vulnpass}   # demo default - set your own outside a laptop
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: vulncorrelator
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -23,28 +33,33 @@ services:
 
   api:
     build: .
-    # Apply migrations, then serve. Only this service migrates, so there is no race.
+    # Only this service migrates, so there is no migration race.
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://vulnuser:${POSTGRES_PASSWORD:-vulnpass}@postgres:5432/vulncorrelator
-      REDIS_URL: redis://redis:6379/0
-      API_KEY: ${API_KEY:-}   # empty = auth disabled; set it to require X-API-Key
+    environment: *app-env
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
 
-  worker:
+  worker:   # ingestion, graph analysis and threat-intel sync, on separate queues
     build: .
-    command: rq worker ingest --url redis://redis:6379/0
+    command: rq worker ingest analysis intel --url redis://redis:6379/0
+    environment: *app-env
     healthcheck:
       disable: true   # the image's HTTP healthcheck only applies to the API
-    environment:
-      DATABASE_URL: postgresql://vulnuser:${POSTGRES_PASSWORD:-vulnpass}@postgres:5432/vulncorrelator
-      REDIS_URL: redis://redis:6379/0
     depends_on:
       api: {condition: service_healthy}   # tables exist once the API is healthy
+      redis: {condition: service_healthy}
+
+  scheduler:   # periodic intel sync + recovery of reports stranded by a crashed worker
+    build: .
+    command: python -m app.intel.scheduler
+    environment: *app-env
+    healthcheck:
+      disable: true
+    depends_on:
+      api: {condition: service_healthy}
       redis: {condition: service_healthy}
 
 volumes:

@@ -1,0 +1,11 @@
+{
+  "source": "demo-external-scan",
+  "vantage": "external",
+  "hosts": [
+    {
+      "ip_address": "8.8.4.10",
+      "mac_addresses": ["02:00:00:00:00:10"],
+      "services": [{"port": 443, "protocol": "tcp", "name": "https", "product": "Acme WebServer", "version": "3.1"}]
+    }
+  ]
+}

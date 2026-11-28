@@ -3,6 +3,7 @@
 from app.parsers.base import ParseError, parse_xml, to_float, valid_ip
 from app.schemas import HostIn, ReportIn, ServiceIn, VulnerabilityIn
 from app.services.intel import CVE_RE
+from app.services.netutil import normalize_mac
 
 
 def _vulners(script, svc_name, product, version, cpe, port, proto) -> list[VulnerabilityIn]:
@@ -45,6 +46,9 @@ def parse_nmap(raw: str | bytes) -> ReportIn:
         )
         if not ip:
             continue
+        macs = [
+            m for m in (normalize_mac(a.get("addr")) for a in h.findall("address") if a.get("addrtype") == "mac") if m
+        ]
         hostname_el = h.find("hostnames/hostname")
         osmatch = h.find("os/osmatch")
 
@@ -72,6 +76,7 @@ def parse_nmap(raw: str | bytes) -> ReportIn:
         hosts.append(
             HostIn(
                 ip_address=ip,
+                mac_addresses=macs,
                 hostname=hostname_el.get("name") if hostname_el is not None else None,
                 os=osmatch.get("name") if osmatch is not None else None,
                 services=services,

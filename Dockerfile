@@ -13,7 +13,7 @@ COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini .
 COPY samples ./samples
-COPY scripts ./scripts
+COPY evaluation ./evaluation
 
 RUN useradd --create-home --uid 10001 appuser && chown -R appuser /app
 USER appuser

@@ -1,10 +1,13 @@
 """Pydantic schemas: ingest payloads (also the parsers' common output) and API responses."""
 
 import ipaddress
+import re
 from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.services.netutil import normalize_mac
 
 
 class VulnerabilityIn(BaseModel):
@@ -21,6 +24,8 @@ class VulnerabilityIn(BaseModel):
     version: str | None = Field(default=None, max_length=64)
     cpe: str | None = Field(default=None, max_length=255)
     evidence: dict = Field(default_factory=dict)
+    # True only when the tool actively validated exploitability (e.g. Nessus "exploited_by_nessus").
+    verified: bool = False
 
 
 class ServiceIn(BaseModel):
@@ -32,13 +37,46 @@ class ServiceIn(BaseModel):
     cpe: str | None = Field(default=None, max_length=255)
 
 
+class ConnectionIn(BaseModel):
+    """An *observed* outbound connection from this host (netstat, flow log, scan run from the host)."""
+
+    dst: str = Field(max_length=64)  # IP address or CIDR
+    port: int = Field(default=0, ge=0, le=65535)  # 0 = unspecified
+    protocol: Literal["tcp", "udp", "any"] = "any"
+
+    @field_validator("dst")
+    @classmethod
+    def _valid_dst(cls, v: str) -> str:
+        try:
+            return str(ipaddress.ip_network(v.strip(), strict=False))
+        except ValueError as exc:
+            raise ValueError(f"invalid address/CIDR: {v!r}") from exc
+
+
 class HostIn(BaseModel):
     ip_address: str
     hostname: str | None = Field(default=None, max_length=255)
     os: str | None = Field(default=None, max_length=255)
     internet_facing: bool | None = None
-    services: list[ServiceIn] = Field(default_factory=list)
-    vulnerabilities: list[VulnerabilityIn] = Field(default_factory=list)
+    # Strong identity hints. Invalid / shared (VRRP) MACs are dropped rather than trusted.
+    mac_addresses: list[str] = Field(default_factory=list, max_length=32)
+    external_ids: dict[str, str] = Field(default_factory=dict, max_length=8)  # scanner-assigned asset ids
+    services: list[ServiceIn] = Field(default_factory=list, max_length=5000)
+    vulnerabilities: list[VulnerabilityIn] = Field(default_factory=list, max_length=20000)
+    connections: list[ConnectionIn] = Field(default_factory=list, max_length=2000)
+
+    @field_validator("mac_addresses")
+    @classmethod
+    def _macs(cls, v: list[str]) -> list[str]:
+        return sorted({m for m in (normalize_mac(x) for x in v) if m})
+
+    @field_validator("external_ids")
+    @classmethod
+    def _ext_ids(cls, v: dict[str, str]) -> dict[str, str]:
+        for k, val in v.items():
+            if not re.fullmatch(r"[a-z0-9_.-]{1,32}", k) or not (1 <= len(val) <= 128):
+                raise ValueError("external_ids keys must match [a-z0-9_.-]{1,32}, values 1-128 chars")
+        return v
 
     @field_validator("ip_address")
     @classmethod
@@ -51,6 +89,8 @@ class HostIn(BaseModel):
 
 class ReportIn(BaseModel):
     source: str = Field(default="generic", min_length=1, max_length=64)
+    # Where the scan ran from. "external" = from the internet, so open services are *observed* to be exposed.
+    vantage: Literal["external", "internal"] | None = None
     hosts: list[HostIn] = Field(min_length=1, max_length=5000)
 
 
@@ -64,6 +104,8 @@ class ReportOut(ORMModel):
     source: str
     format: str
     status: str
+    vantage: str | None = None
+    attempts: int = 0
     hosts_count: int
     findings_count: int
     new_count: int
@@ -79,15 +121,35 @@ class AssetOut(ORMModel):
     hostname: str | None
     os: str | None
     internet_facing: bool
+    exposure_source: str = "unknown"
+    criticality: int = 3
+    tags: list[str] = Field(default_factory=list)
+    controls: list[str] = Field(default_factory=list)
     first_seen: datetime
     last_seen: datetime
     vulnerability_count: int = 0
     max_risk_score: float | None = None
 
 
+_LABEL = r"^[a-z0-9][a-z0-9_.:-]{0,39}$"
+
+
 class AssetPatch(BaseModel):
     hostname: str | None = Field(default=None, max_length=255)
     internet_facing: bool | None = None
+    criticality: int | None = Field(default=None, ge=1, le=5)
+    tags: list[str] | None = Field(default=None, max_length=20)
+    controls: list[str] | None = Field(default=None, max_length=20)
+
+    @field_validator("tags", "controls")
+    @classmethod
+    def _labels(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        out = sorted({x.strip().lower() for x in v})
+        if any(not re.fullmatch(_LABEL, x) for x in out):
+            raise ValueError("labels must match [a-z0-9][a-z0-9_.:-]{0,39}")
+        return out
 
 
 class ServiceOut(ORMModel):
@@ -117,9 +179,13 @@ class VulnerabilityOut(ORMModel):
     version: str | None
     tags: list[str]
     sources: list[str]
+    evidence_status: str = "observed"
+    cvss_source: str | None = None
     epss: float | None
     in_kev: bool
     risk_score: float
+    risk_band: str | None = None
+    risk_model_version: str | None = None
     first_seen: datetime
     last_seen: datetime
 
@@ -142,6 +208,9 @@ class ChainStep(BaseModel):
 
 class ChainOut(BaseModel):
     id: str
+    evidence_status: str = "inferred"  # lateral-movement is "hypothetical": it assumes same-subnet connectivity
+    deprecated: bool = True
+    successor: str = "/attack-paths"
     rule: str
     title: str
     risk_score: float

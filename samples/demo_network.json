@@ -1,0 +1,48 @@
+{
+  "source": "demo-scanner",
+  "hosts": [
+    {
+      "ip_address": "8.8.4.10",
+      "hostname": "web01.example.test",
+      "mac_addresses": ["02:00:00:00:00:10"],
+      "vulnerabilities": [
+        {"cve_id": "CVE-2099-0001", "title": "Acme WebServer 3.1 remote code execution", "port": 443, "protocol": "tcp",
+         "service_name": "https", "product": "Acme WebServer", "version": "3.1", "cvss_score": 9.8,
+         "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}
+      ],
+      "connections": [{"dst": "10.10.0.20", "port": 8080, "protocol": "tcp"}]
+    },
+    {
+      "ip_address": "10.10.0.20",
+      "hostname": "app01.example.test",
+      "mac_addresses": ["02:00:00:00:00:20"],
+      "vulnerabilities": [
+        {"cve_id": "CVE-2099-0002", "title": "Acme AppServer remote code execution", "port": 8080, "protocol": "tcp",
+         "service_name": "http-alt", "product": "Acme AppServer", "version": "7.2", "cvss_score": 8.8,
+         "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"},
+        {"cve_id": "CVE-2099-0003", "title": "Acme runtime local privilege escalation", "cvss_score": 7.8,
+         "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"}
+      ],
+      "connections": [{"dst": "10.10.0.30", "port": 5432, "protocol": "tcp"}]
+    },
+    {
+      "ip_address": "10.10.0.30",
+      "hostname": "db01.example.test",
+      "mac_addresses": ["02:00:00:00:00:30"],
+      "vulnerabilities": [
+        {"cve_id": "CVE-2099-0004", "title": "Acme Database remote code execution", "port": 5432, "protocol": "tcp",
+         "service_name": "postgresql", "product": "Acme Database", "version": "12.1", "cvss_score": 9.8,
+         "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}
+      ]
+    },
+    {
+      "ip_address": "10.10.0.40",
+      "hostname": "jump01.example.test",
+      "mac_addresses": ["02:00:00:00:00:40"],
+      "vulnerabilities": [
+        {"cve_id": "CVE-2099-0005", "title": "Acme SSH remote code execution", "port": 22, "protocol": "tcp",
+         "service_name": "ssh", "cvss_score": 9.8, "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}
+      ]
+    }
+  ]
+}

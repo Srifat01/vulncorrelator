@@ -1,4 +1,7 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///usr/bin/../share/nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.94 scan initiated as: nmap -sV -oX - 10.0.1.0/24 -->
 <nmaprun scanner="nmap" args="nmap -sV -oX - 10.0.1.0/24" version="7.94">
   <host>
     <status state="up"/>

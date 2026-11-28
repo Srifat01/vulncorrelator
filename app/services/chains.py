@@ -21,6 +21,13 @@ from app.services.risk import severity_from_score
 
 FOOTHOLD_TAGS = frozenset({"rce", "backdoor", "auth-bypass", "sqli"})
 PRIVESC_TAGS = frozenset({"privesc"})
+# Honest labels for the legacy rules. lateral-movement ASSUMES that hosts in one /24 can reach each other, so
+# its results are hypothetical by construction; use /attack-paths for evidence-based paths.
+LEGACY_EVIDENCE = {
+    "foothold-to-privesc": "inferred",
+    "lateral-movement": "hypothetical",
+    "exploited-on-exposed-service": "inferred",
+}
 MAX_PIVOT_TARGETS = 3  # per internet-facing entry point, to keep output readable
 
 
@@ -209,6 +216,9 @@ def chain_to_dict(c: Chain) -> dict:
         seen.setdefault(s.asset.id, {"id": s.asset.id, "ip_address": s.asset.ip})
     return {
         "id": c.id,
+        "evidence_status": LEGACY_EVIDENCE[c.rule],
+        "deprecated": True,
+        "successor": "/attack-paths",
         "rule": c.rule,
         "title": c.title,
         "risk_score": c.risk_score,

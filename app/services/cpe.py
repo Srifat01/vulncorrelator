@@ -50,6 +50,14 @@ def parse_cpe(raw: str | None) -> Cpe | None:
     return Cpe(part, vendor, product, version)
 
 
+def canonical_cpe23(raw: str | None) -> str | None:
+    """CPE 2.2 or 2.3 -> one canonical 2.3 string. None unless it names a specific product *version*."""
+    c = parse_cpe(raw)
+    if c is None or c.version is None:
+        return None
+    return f"cpe:2.3:{c.part}:{c.vendor}:{c.product}:{c.version}:*:*:*:*:*:*:*"
+
+
 # lowercase substring found in a scanner's product string -> (vendor, product)
 PRODUCT_ALIASES: dict[str, tuple[str, str]] = {
     "apache httpd": ("apache", "http_server"),
